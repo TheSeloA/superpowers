@@ -1,3 +1,82 @@
+# Local AI Additions
+
+This fork of [obra/superpowers](https://github.com/obra/superpowers) adds support for offloading mechanical generation tasks to a local AI model running via [Ollama](https://ollama.com), while keeping the primary AI agent as the reviewer and decision-maker.
+
+---
+
+## What was added
+
+### `skills/local-implementer/SKILL.md`
+
+A new skill that instructs the agent to use a local Ollama model for mechanical, token-heavy generation tasks instead of doing it itself.
+
+**When the skill is used:**
+- Test file first drafts for a handler or module
+- Scaffolding new files from known patterns (handler skeletons, config files)
+- Simple mechanical rewrites (rename, reformat, translate pattern)
+- File summaries
+
+**What the skill does NOT do:**
+- Security or auth decisions
+- Architecture or system design
+- Debugging or root cause analysis
+- Anything requiring judgment across multiple files
+
+**Core principle:** Local model generates, primary agent reviews. Nothing is written to disk without user confirmation.
+
+---
+
+### `scripts/ask-local.ps1`
+
+Calls the Ollama `/api/generate` endpoint. Features:
+- Lock file to prevent parallel calls (Ollama degrades badly under concurrent load)
+- Stale lock detection (auto-clears locks older than 10 minutes)
+- Two modes: `fast` (smaller/faster model) and `quality` (larger/slower model)
+- Low temperature (0.1) for deterministic output
+- Timeout handling with clear error messages
+
+```powershell
+.\scripts\ask-local.ps1 -Mode fast -Prompt "Summarise what this file does"
+.\scripts\ask-local.ps1 -Mode quality -Prompt "Write a vitest test file for handler.js"
+```
+
+Update these values at the top of the script for your setup:
+```powershell
+$OLLAMA_URL    = 'http://localhost:11434/api/generate'   # or remote IP
+$MODEL_FAST    = 'qwen2.5-coder:7b'
+$MODEL_QUALITY = 'qwen2.5-coder:32b'
+```
+
+---
+
+## Setup
+
+1. Install [Ollama](https://ollama.com) and pull your preferred models:
+   ```bash
+   ollama pull qwen2.5-coder:7b
+   ollama pull qwen2.5-coder:32b
+   ```
+
+2. Make Ollama reachable from your dev machine (local network, Tailscale, etc.)
+
+3. Copy `scripts/ask-local.ps1` into your project and update the URL/model names
+
+4. Copy `.claude/commands/local.md` and `.claude/commands/local-test.md` into your project
+
+5. Add a Local AI section to your project's `CLAUDE.md` pointing to the script
+
+6. The `local-implementer` skill is picked up automatically once this plugin is installed
+
+---
+
+## Why
+
+Large AI models are good at judgment, architecture, and debugging. They are expensive for high-volume mechanical output (test files, boilerplate). Local models on capable hardware (64GB+ RAM) handle the mechanical work well and are free after the hardware cost. This setup lets you use each where it makes sense.
+
+---
+
+---
+
 # Superpowers
 
 Superpowers is a complete software development methodology for your coding agents, built on top of a set of composable skills and some initial instructions that make sure your agent uses them.
